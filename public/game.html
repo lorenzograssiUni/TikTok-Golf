@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Open Golf - Il Tuo Turno</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Open Golf</h1>
+    <div id="loading">Caricamento...</div>
+    <div id="gameContent" class="hidden">
+      <div class="card player-info">
+        <h2 id="playerUsername">Caricamento...</h2>
+        <div class="stats">
+          <div class="stat"><span class="label">Posizione:</span><span id="playerPosition" class="value">-</span></div>
+          <div class="stat"><span class="label">Tiri:</span><span id="playerShots" class="value">-</span></div>
+          <div class="stat"><span class="label">Punteggio:</span><span id="playerScore" class="value">-</span></div>
+        </div>
+      </div>
+      <div id="turnStatus" class="card turn-status"><h3 id="turnMessage">In attesa...</h3></div>
+      <div id="gameControls" class="card hidden">
+        <h3>Controlli</h3>
+        <div class="control-section">
+          <h4>Direzione</h4>
+          <div class="direction-indicator"><div class="gauge"><div class="needle" id="directionNeedle"></div></div></div>
+          <button id="stopDirection" class="btn btn-primary btn-large">FERMA DIREZIONE</button>
+        </div>
+        <div class="control-section">
+          <h4>Forza</h4>
+          <div class="power-indicator"><div class="vertical-gauge"><div class="power-bar" id="powerBar"></div></div></div>
+          <button id="stopPower" class="btn btn-primary btn-large">FERMA FORZA</button>
+        </div>
+        <button id="executeShot" class="btn btn-success btn-large">ESEGUI TIRO</button>
+      </div>
+      <div class="card">
+        <h3>Coda Giocatori</h3>
+        <select id="queueDropdown" class="queue-dropdown"><option value="">Seleziona...</option></select>
+        <div id="queueDetails" class="queue-details"></div>
+      </div>
+      <div class="card"><h3>Classifica</h3><div id="leaderboardMini" class="leaderboard-mini"></div></div>
+    </div>
+  </div>
+  <script>
+    const API_BASE = 'http://localhost:3000/api';
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    let playerData = null, directionValue = 50, powerValue = 50, directionMoving = true, powerMoving = true, directionDirection = 1, powerDirection = 1;
+    if (!token) { document.getElementById('loading').innerHTML = '<p class="error">Token non valido!</p>'; }
+    else { loadPlayerData(); startAnimations(); }
+    async function loadPlayerData() {
+      try {
+        const response = await fetch(`${API_BASE}/player/${token}`);
+        const data = await response.json();
+        if (data.error) { document.getElementById('loading').innerHTML = `<p class="error">${data.error}</p>`; return; }
+        playerData = data.player;
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('gameContent').classList.remove('hidden');
+        document.getElementById('playerUsername').textContent = `@${playerData.username}`;
+        updatePlayerStats(); updateTurnStatus();
+        loadQueueDropdown(); loadLeaderboardMini();
+      } catch (error) { document.getElementById('loading').innerHTML = '<p class="error">Errore connessione</p>'; }
+    }
+    function updatePlayerStats() {
+      document.getElementById('playerPosition').textContent = `#${playerData.position}`;
+      document.getElementById('playerShots').textContent = playerData.shotsRemaining;
+      document.getElementById('playerScore').textContent = playerData.score;
+    }
+    function updateTurnStatus() {
+      const turnStatus = document.getElementById('turnStatus');
+      const turnMessage = document.getElementById('turnMessage');
+      const gameControls = document.getElementById('gameControls');
+      if (playerData.isCurrentTurn && playerData.shotsRemaining > 0) {
+        turnStatus.className = 'card turn-status active';
+        turnMessage.textContent = '🎮 È IL TUO TURNO!'; turnMessage.style.color = '#4CAF50';
+        gameControls.classList.remove('hidden');
+      } else if (playerData.shotsRemaining <= 0) {
+        turnStatus.className = 'card turn-status';
+        turnMessage.textContent = '✅ Hai completato i tiri!'; turnMessage.style.color = '#FF9800';
+        gameControls.classList.add('hidden');
+      } else {
+        turnStatus.className = 'card turn-status';
+        turnMessage.textContent = `⏳ In attesa... (Turno: ${playerData.currentTurn || 'Nessuno'})`; turnMessage.style.color = '#2196F3';
+        gameControls.classList.add('hidden');
+      }
+    }
+    function startAnimations() {
+      setInterval(() => {
+        if (directionMoving) {
+          directionValue += 2 * directionDirection;
+          if (directionValue >= 100 || directionValue <= 0) directionDirection *= -1;
+          document.getElementById('directionNeedle').style.transform = `rotate(${(directionValue - 50) * 1.8}deg)`;
+        }
+      }, 50);
+      setInterval(() => {
+        if (powerMoving) {
+          powerValue += 2 * powerDirection;
+          if (powerValue >= 100 || powerValue <= 0) powerDirection *= -1;
+          document.getElementById('powerBar').style.height = `${powerValue}%`;
+        }
+      }, 50);
+    }
+    document.getElementById('stopDirection').addEventListener('click', () => { directionMoving = false; alert(`Direzione: ${Math.round(directionValue)}%`); });
+    document.getElementById('stopPower').addEventListener('click', () => { powerMoving = false; alert(`Forza: ${Math.round(powerValue)}%`); });
+    document.getElementById('executeShot').addEventListener('click', async () => {
+      if (!directionMoving && !powerMoving) {
+        const score = Math.round((directionValue + powerValue) / 2);
+        const response = await fetch(`${API_BASE}/shot/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ direction: Math.round(directionValue), power: Math.round(powerValue), score }) });
+        const data = await response.json();
+        if (data.success) {
+          playerData.shotsRemaining = data.player.shotsRemaining;
+          playerData.score = data.player.score;
+          updatePlayerStats();
+          directionMoving = true; powerMoving = true; directionValue = 50; powerValue = 50;
+          alert(`Tiro eseguito! Punteggio: ${score}`);
+          if (playerData.shotsRemaining <= 0) updateTurnStatus();
+        }
+      } else { alert('Ferma prima direzione e forza!'); }
+    });
+    async function loadQueueDropdown() {
+      const response = await fetch(`${API_BASE}/queue`);
+      const data = await response.json();
+      const dropdown = document.getElementById('queueDropdown');
+      dropdown.innerHTML = '<option value="">Seleziona...</option>';
+      data.queue.forEach(p => {
+        const option = document.createElement('option');
+        option.value = p.username; option.textContent = `#${p.position} - ${p.username} (${p.shotsRemaining} tiri)`;
+        dropdown.appendChild(option);
+      });
+      dropdown.addEventListener('change', (e) => {
+        const selected = e.target.value;
+        if (selected) {
+          const player = data.queue.find(p => p.username === selected);
+          document.getElementById('queueDetails').innerHTML = `<p><strong>${player.username}</strong></p><p>Posizione: #${player.position}</p><p>Tiri: ${player.shotsRemaining}</p><p>Stato: ${player.status}</p>`;
+        }
+      });
+    }
+    async function loadLeaderboardMini() {
+      const response = await fetch(`${API_BASE}/leaderboard`);
+      const data = await response.json();
+      const leaderboard = document.getElementById('leaderboardMini');
+      leaderboard.innerHTML = '';
+      data.leaderboard.slice(0, 5).forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'leaderboard-item-mini';
+        const icon = p.position === 1 ? '🥇' : p.position === 2 ? '🥈' : p.position === 3 ? '🥉' : `#${p.position}`;
+        div.innerHTML = `<span class="position">${icon}</span><span class="username">${p.username}</span><span class="score">${p.score} pts</span>`;
+        leaderboard.appendChild(div);
+      });
+    }
+    setInterval(() => { if (playerData) { loadPlayerData(); loadQueueDropdown(); loadLeaderboardMini(); } }, 3000);
+  </script>
+</body>
+</html>
