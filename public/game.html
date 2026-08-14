@@ -36,8 +36,7 @@
       </div>
       <div class="card">
         <h3>Coda Giocatori</h3>
-        <select id="queueDropdown" class="queue-dropdown"><option value="">Seleziona...</option></select>
-        <div id="queueDetails" class="queue-details"></div>
+        <div id="queueList" class="queue-list-scrollable"></div>
       </div>
       <div class="card"><h3>Classifica</h3><div id="leaderboardMini" class="leaderboard-mini"></div></div>
     </div>
@@ -59,7 +58,7 @@
         document.getElementById('gameContent').classList.remove('hidden');
         document.getElementById('playerUsername').textContent = `@${playerData.username}`;
         updatePlayerStats(); updateTurnStatus();
-        loadQueueDropdown(); loadLeaderboardMini();
+        loadQueueList(); loadLeaderboardMini();
       } catch (error) { document.getElementById('loading').innerHTML = '<p class="error">Errore connessione</p>'; }
     }
     function updatePlayerStats() {
@@ -118,22 +117,18 @@
         }
       } else { alert('Ferma prima direzione e forza!'); }
     });
-    async function loadQueueDropdown() {
+    async function loadQueueList() {
       const response = await fetch(`${API_BASE}/queue`);
       const data = await response.json();
-      const dropdown = document.getElementById('queueDropdown');
-      dropdown.innerHTML = '<option value="">Seleziona...</option>';
-      data.queue.forEach(p => {
-        const option = document.createElement('option');
-        option.value = p.username; option.textContent = `#${p.position} - ${p.username} (${p.shotsRemaining} tiri)`;
-        dropdown.appendChild(option);
-      });
-      dropdown.addEventListener('change', (e) => {
-        const selected = e.target.value;
-        if (selected) {
-          const player = data.queue.find(p => p.username === selected);
-          document.getElementById('queueDetails').innerHTML = `<p><strong>${player.username}</strong></p><p>Posizione: #${player.position}</p><p>Tiri: ${player.shotsRemaining}</p><p>Stato: ${player.status}</p>`;
-        }
+      const queueList = document.getElementById('queueList');
+      queueList.innerHTML = '';
+      const activeQueue = data.queue.filter(p => p.shotsRemaining > 0 || p.isCurrentTurn);
+      activeQueue.forEach(p => {
+        const div = document.createElement('div');
+        const isMe = p.username === playerData.username;
+        div.className = `queue-item-scrollable ${isMe ? 'highlight' : ''} ${p.isCurrentTurn ? 'current' : ''}`;
+        div.innerHTML = `<span class="position">#${p.position}</span><span class="username">${p.username}</span><span class="shots">${p.shotsRemaining} tiri</span>${p.isCurrentTurn ? '<span class="badge">IN TURNO</span>' : ''}${isMe ? '<span class="badge badge-me">TU</span>' : ''}`;
+        queueList.appendChild(div);
       });
     }
     async function loadLeaderboardMini() {
@@ -149,7 +144,7 @@
         leaderboard.appendChild(div);
       });
     }
-    setInterval(() => { if (playerData) { loadPlayerData(); loadQueueDropdown(); loadLeaderboardMini(); } }, 3000);
+    setInterval(() => { if (playerData) { loadPlayerData(); loadQueueList(); loadLeaderboardMini(); } }, 2000);
   </script>
 </body>
 </html>
