@@ -6,61 +6,36 @@
 #include "common/inputs.h"
 #include "common/graphics.h"
 #include "common/audio.h"
-#include "common/thread.h"
-#include "common/vec.h"
 
-#include <sokol/gfx.h>
 #include <sokol/sapp.h>
-#include <sokol/saudio.h>
 
 #include <stdio.h>
 #include <stdlib.h>
 
-static struct game *g_game;
-static struct inputs *g_inputs;
-static struct graphics *g_graphics;
-static struct audio *g_audio;
-
 static void
-game_init(void)
+golf_init_cb(void)
 {
-    g_game = game_create();
-    g_inputs = inputs_create();
-    g_graphics = graphics_create();
-    g_audio = audio_create();
-
-    game_init_level(g_game, 0);
+    golf_init();
 }
 
 static void
-game_frame(void)
+golf_frame_cb(void)
 {
-    inputs_update(g_inputs);
-
-    game_update(g_game, g_inputs);
-    draw_frame(g_game, g_graphics, g_inputs);
-    ui_frame(g_game, g_graphics, g_inputs);
-
-    if (game_should_quit(g_game)) {
-        sapp_request_quit();
-    }
+    golf_frame();
 }
 
 static void
-game_cleanup(void)
+golf_cleanup_cb(void)
 {
-    game_destroy(g_game);
-    inputs_destroy(g_inputs);
-    graphics_destroy(g_graphics);
-    audio_destroy(g_audio);
+    golf_cleanup();
 }
 
 SOKOL_MAIN
 {
     sapp_desc desc = {
-        .init_cb = game_init,
-        .frame_cb = game_frame,
-        .cleanup_cb = game_cleanup,
+        .init_cb = golf_init_cb,
+        .frame_cb = golf_frame_cb,
+        .cleanup_cb = golf_cleanup_cb,
         .width = 1280,
         .height = 720,
         .window_title = "Open Golf",
