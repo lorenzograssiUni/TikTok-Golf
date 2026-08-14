@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Genera Link</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>🎯 Open Golf - Admin</h1>
+    <div class="card">
+      <h2>Genera Link Giocatore</h2>
+      <form id="generateForm">
+        <div class="form-group">
+          <label for="username">Username TikTok:</label>
+          <input type="text" id="username" placeholder="@utente" required>
+        </div>
+        <div class="form-group">
+          <label for="donationAmount">Donazione (€):</label>
+          <input type="number" id="donationAmount" min="1" value="1" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Genera Link</button>
+      </form>
+      <div id="result" class="result hidden">
+        <h3>Link Generato!</h3>
+        <p><strong>Giocatore:</strong> <span id="resultUsername"></span></p>
+        <p><strong>Tiri:</strong> <span id="resultShots"></span></p>
+        <p><strong>Posizione:</strong> <span id="resultPosition"></span></p>
+        <div class="link-box"><a id="gameLink" href="#" target="_blank">Apri pagina gioco</a></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Coda Giocatori</h2>
+      <button id="refreshQueue" class="btn btn-secondary">Aggiorna</button>
+      <button id="nextTurn" class="btn btn-primary">Prossimo Turno</button>
+      <button id="resetGame" class="btn btn-danger">Resetta</button>
+      <div id="queueList" class="queue-list"></div>
+    </div>
+    <div class="card">
+      <h2>Classifica</h2>
+      <button id="refreshLeaderboard" class="btn btn-secondary">Aggiorna</button>
+      <div id="leaderboardList" class="leaderboard-list"></div>
+    </div>
+  </div>
+  <script>
+    const API_BASE = 'http://localhost:3000/api';
+    document.getElementById('generateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const donationAmount = parseFloat(document.getElementById('donationAmount').value);
+      const response = await fetch(`${API_BASE}/generate-link`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, donationAmount }) });
+      const data = await response.json();
+      if (data.success) {
+        document.getElementById('resultUsername').textContent = data.player.username;
+        document.getElementById('resultShots').textContent = data.player.shots;
+        document.getElementById('resultPosition').textContent = data.player.position;
+        document.getElementById('gameLink').href = data.gameUrl;
+        document.getElementById('result').classList.remove('hidden');
+        document.getElementById('username').value = '';
+        loadQueue(); loadLeaderboard();
+      }
+    });
+    async function loadQueue() {
+      const response = await fetch(`${API_BASE}/queue`);
+      const data = await response.json();
+      const queueList = document.getElementById('queueList');
+      queueList.innerHTML = '';
+      data.queue.forEach(p => {
+        const div = document.createElement('div');
+        div.className = `queue-item ${p.isCurrentTurn ? 'current' : ''}`;
+        div.innerHTML = `<span class="position">#${p.position}</span><span class="username">${p.username}</span><span class="shots">${p.shotsRemaining} tiri</span>${p.isCurrentTurn ? '<span class="badge">IN TURNO</span>' : ''}`;
+        queueList.appendChild(div);
+      });
+    }
+    async function loadLeaderboard() {
+      const response = await fetch(`${API_BASE}/leaderboard`);
+      const data = await response.json();
+      const list = document.getElementById('leaderboardList');
+      list.innerHTML = '';
+      data.leaderboard.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'leaderboard-item';
+        const icon = p.position === 1 ? '🥇' : p.position === 2 ? '🥈' : p.position === 3 ? '🥉' : `#${p.position}`;
+        div.innerHTML = `<span class="position">${icon}</span><span class="username">${p.username}</span><span class="score">${p.score} pts</span>`;
+        list.appendChild(div);
+      });
+    }
+    document.getElementById('nextTurn').addEventListener('click', async () => {
+      const response = await fetch(`${API_BASE}/next-turn`, { method: 'POST' });
+      const data = await response.json();
+      if (data.success) { alert(`Turno: ${data.currentTurn.username}`); loadQueue(); }
+      else { alert(data.message); }
+    });
+    document.getElementById('resetGame').addEventListener('click', async () => {
+      if (confirm('Resettare tutto?')) {
+        await fetch(`${API_BASE}/reset`, { method: 'POST' });
+        loadQueue(); loadLeaderboard();
+        document.getElementById('result').classList.add('hidden');
+        alert('Resettato');
+      }
+    });
+    document.getElementById('refreshQueue').addEventListener('click', loadQueue);
+    document.getElementById('refreshLeaderboard').addEventListener('click', loadLeaderboard);
+    loadQueue(); loadLeaderboard();
+    setInterval(() => { loadQueue(); loadLeaderboard(); }, 5000);
+  </script>
+</body>
+</html>
