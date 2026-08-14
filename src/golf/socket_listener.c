@@ -1,108 +1,125 @@
-#include "socket_listener.h"
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
+#include <stdlib.h>
 
 #ifdef _WIN32
 #include <winsock2.h>
+#include <ws2tcpip.h>
 #pragma comment(lib, "ws2_32.lib")
-typedef SOCKET Socket;
-#define INVALID_SOCKET_HANDLE INVALID_SOCKET
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include <unistd.h>
-#include <fcntl.h>
-typedef int Socket;
-#define INVALID_SOCKET_HANDLE -1
-#define closesocket close
+#include <errno.h>
 #endif
 
-static Socket server_socket = INVALID_SOCKET_HANDLE;
-static Socket client_socket = INVALID_SOCKET_HANDLE;
-static struct sockaddr_in server_addr;
-static char buffer[BUFFER_SIZE];
-static bool initialized = false;
+#define SOCKET_LISTENER_PORT 55555
+#define SOCKET_BUFFER_SIZE 256
 
-bool socket_listener_init(void) {
+#ifdef _WIN32
+typedef SOCKET socket_t;
+#define INVALID_SOCKET_VALUE INVALID_SOCKET
+#define SOCKET_ERROR_VALUE SOCKET_ERROR
+#define CLOSE_SOCKET(s) closesocket(s)
+#define LAST_ERROR WSAGetLastError()
+#else
+typedef int socket_t;
+#define INVALID_SOCKET_VALUE (-1)
+#define SOCKET_ERROR_VALUE (-1)
+#define CLOSE_SOCKET(s) close(s)
+#define LAST_ERROR errno
+#endif
+
+static socket_t g_socket = INVALID_SOCKET_VALUE;
+static int g_initialized = 0;
+
+int
+socket_listener_init(void)
+{
 #ifdef _WIN32
     WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
-#endif
-    server_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_socket == INVALID_SOCKET_HANDLE) return false;
-#ifdef _WIN32
-    u_long mode = 1;
-    ioctlsocket(server_socket, FIONBIO, &mode);
-#else
-    int flags = fcntl(server_socket, F_GETFL, 0);
-    fcntl(server_socket, F_SETFL, flags | O_NONBLOCK);
-#endif
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    server_addr.sin_port = htons(SOCKET_PORT);
-    if (bind(server_socket, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) { closesocket(server_socket); return false; }
-    if (listen(server_socket, 1) < 0) { closesocket(server_socket); return false; }
-    printf("✅ Socket listener on port %d\n", SOCKET_PORT);
-    initialized = true;
-    return true;
-}
-
-bool socket_listener_update(Command* cmd) {
-    if (!initialized) return false;
-    if (client_socket == INVALID_SOCKET_HANDLE) {
-        struct sockaddr_in client_addr;
-        socklen_t client_len = sizeof(client_addr);
-        client_socket = accept(server_socket, (struct sockaddr*)&client_addr, &client_len);
-        if (client_socket != INVALID_SOCKET_HANDLE) {
-            printf("✅ Client connected\n");
-#ifdef _WIN32
-            u_long mode = 1;
-            ioctlsocket(client_socket, FIONBIO, &mode);
-#else
-            int flags = fcntl(client_socket, F_GETFL, 0);
-            fcntl(client_socket, F_SETFL, flags | O_NONBLOCK);
-#endif
-        }
+    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (result != 0) {
+        fprintf(stderr, "WSAStartup failed: %d\n", result);
+        return -1;
     }
-    if (client_socket != INVALID_SOCKET_HANDLE) {
-        int bytes_read = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-        if (bytes_read > 0) {
-            buffer[bytes_read] = '\0';
-            char* newline = strchr(buffer, '\n');
-            if (newline) *newline = '\0';
-            printf("📥 Command: %s\n", buffer);
-            char command[64]; int value = 0;
-            if (sscanf(buffer, "%63s %d", command, &value) == 2) {
-                if (strcmp(command, "SET_DIRECTION") == 0) { cmd->type = CMD_SET_DIRECTION; cmd->value = value; return true; }
-                if (strcmp(command, "SET_POWER") == 0) { cmd->type = CMD_SET_POWER; cmd->value = value; return true; }
-            } else if (sscanf(buffer, "%63s", command) == 1) {
-                if (strcmp(command, "EXECUTE_SHOT") == 0) { cmd->type = CMD_EXECUTE_SHOT; return true; }
-                if (strcmp(command, "GET_SCORE") == 0) { cmd->type = CMD_GET_SCORE; return true; }
-                if (strcmp(command, "RESET_GAME") == 0) { cmd->type = CMD_RESET_GAME; return true; }
-            }
-        } else if (bytes_read == 0) {
-            printf("⚠️  Client disconnected\n");
-            closesocket(client_socket);
-            client_socket = INVALID_SOCKET_HANDLE;
-        }
-    }
-    cmd->type = CMD_NONE;
-    return false;
-}
-
-void socket_listener_send_response(const char* response) {
-    if (client_socket != INVALID_SOCKET_HANDLE && response) send(client_socket, response, strlen(response), 0);
-}
-
-void socket_listener_cleanup(void) {
-    if (client_socket != INVALID_SOCKET_HANDLE) { closesocket(client_socket); client_socket = INVALID_SOCKET_HANDLE; }
-    if (server_socket != INVALID_SOCKET_HANDLE) { closesocket(server_socket); server_socket = INVALID_SOCKET_HANDLE; }
-#ifdef _WIN32
-    WSACleanup();
 #endif
-    initialized = false;
+
+    g_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (g_socket == INVALID_SOCKET_VALUE) {
+        fprintf(stderr, "socket() failed\n");
+#ifdef _WIN32
+        WSACleanup();
+#endif
+        return -1;
+    }
+
+    struct sockaddr_in addr;
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port = htons(SOCKET_LISTENER_PORT);
+
+    if (bind(g_socket, (struct sockaddr *)&addr, sizeof(addr)) == SOCKET_ERROR_VALUE) {
+        fprintf(stderr, "bind() failed\n");
+        CLOSE_SOCKET(g_socket);
+        g_socket = INVALID_SOCKET_VALUE;
+#ifdef _WIN32
+        WSACleanup();
+#endif
+        return -1;
+    }
+
+    g_initialized = 1;
+    return 0;
 }
 
-bool socket_listener_is_connected(void) { return client_socket != INVALID_SOCKET_HANDLE; }
+int
+socket_listener_poll(char *out_buf, int out_buf_size)
+{
+    if (!g_initialized || g_socket == INVALID_SOCKET_VALUE) {
+        return 0;
+    }
+
+    struct sockaddr_in client_addr;
+    int client_len = sizeof(client_addr);
+    char buffer[SOCKET_BUFFER_SIZE];
+
+    int n = recvfrom(
+        g_socket,
+        buffer,
+        (int)sizeof(buffer),
+        0,
+        (struct sockaddr *)&client_addr,
+        &client_len
+    );
+
+    if (n == SOCKET_ERROR_VALUE || n <= 0) {
+        return 0;
+    }
+
+    if (n >= out_buf_size) {
+        n = out_buf_size - 1;
+    }
+
+    memcpy(out_buf, buffer, n);
+    out_buf[n] = '\0';
+
+    return n;
+}
+
+void
+socket_listener_cleanup(void)
+{
+    if (g_socket != INVALID_SOCKET_VALUE) {
+        CLOSE_SOCKET(g_socket);
+        g_socket = INVALID_SOCKET_VALUE;
+    }
+#ifdef _WIN32
+    if (g_initialized) {
+        WSACleanup();
+    }
+#endif
+    g_initialized = 0;
+}

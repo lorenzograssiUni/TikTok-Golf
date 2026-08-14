@@ -1,29 +1,16 @@
 #ifndef SOCKET_LISTENER_H
 #define SOCKET_LISTENER_H
 
-#include <stdbool.h>
-
-#define SOCKET_PORT 9999
-#define BUFFER_SIZE 256
-
-typedef enum {
-    CMD_NONE,
-    CMD_SET_DIRECTION,
-    CMD_SET_POWER,
-    CMD_EXECUTE_SHOT,
-    CMD_GET_SCORE,
-    CMD_RESET_GAME
-} CommandType;
-
-typedef struct {
-    CommandType type;
-    int value;
-} Command;
-
-bool socket_listener_init(void);
-bool socket_listener_update(Command* cmd);
-void socket_listener_send_response(const char* response);
-void socket_listener_cleanup(void);
-bool socket_listener_is_connected(void);
-
+#ifdef __cplusplus
+extern "C" {
 #endif
+
+int socket_listener_init(void);
+int socket_listener_poll(char *out_buf, int out_buf_size);
+void socket_listener_cleanup(void);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* SOCKET_LISTENER_H */
