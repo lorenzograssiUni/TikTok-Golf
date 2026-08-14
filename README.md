@@ -1,53 +1,99 @@
-# Open Golf
-A cross-platform minigolf game written in C. 
+# 🎯 TikTok Golf
 
-## Platforms
-- HTML: https://mgerdes.github.io/minigolf.html (Works best in Chrome)
-- iOS: https://apps.apple.com/us/app/open-golf/id1615224465
-- Android: https://play.google.com/store/apps/details?id=me.mgerdes.open_golf
-- Windows
-- Linux
+Progetto Open Golf integrato con sistema di donazioni per TikTok Live. Gli utenti donano e ricevono un link per giocare, con coda e classifica in tempo reale.
 
-## Info
-![Image](https://i.imgur.com/TBlXedl.gif)
-- Used the [Sokol](https://github.com/floooh/sokol) libraries to create a cross platform application with 3D graphics and audio.
-- Wrote the Physics code to handle collision detection and collision response for the golf ball.
-- Used [ImGui](https://github.com/ocornut/imgui) to create in games tools for fast iteration. Also created an in game-editor that can be used to modify the terrain of a hole and then quickly play to get fast feedback. The game-editor can also run scripts to generate the points and faces of more interesting models.
-![Image](https://i.imgur.com/fCoKT2e.gif)
-- Used the library [Lightmapper](https://github.com/ands/lightmapper) to generate lightmaps for the terrain and also [xatlas](https://github.com/jpcy/xatlas) to generate lightmap UVs. These lightmaps are then baked into the files for the courses. It can also interpolate between multiple samples to create lightmaps for some moving objects.
-![Image](https://i.imgur.com/ADw5kCw.gif)
-![Image](https://i.imgur.com/tUJyHRk.gif)
+## 📁 Struttura
 
-## Building
-### Windows
-- To compile run `build\build-win64.bat`
+```
+TikTok-Golf/
+├── src/              # Codice C di Open-Golf
+├── public/           # Frontend web
+│   ├── admin.html    # Pannello admin
+│   ├── game.html     # Pagina giocatore
+│   └── style.css     # Stili CSS
+├── server.js         # Backend Node.js
+├── package.json      # Dipendenze Node.js
+└── README.md         # Questa documentazione
+```
 
-- To start the game run `out\win64\golf.exe`
+## 🚀 Installazione
 
-- This also creates `out\win64\golf.sln` which can be opened in Visual Studio to compile / run everything
+### 1. Installa Node.js
 
-### Linux
-- To compile run `./build/build-linux.sh`
+Scarica Node.js da [nodejs.org](https://nodejs.org/)
 
-- To start the game run `out/linux/golf`
+### 2. Installa le dipendenze
 
-## OSX
-- To compile run `./build/build-osx.sh`
+```bash
+cd TikTok-Golf
+npm install
+```
 
-- To start the game run `out/osx/golf`
+### 3. Avvia il server
 
-## 3rd Party Libraries
-- [cembed](https://github.com/rxi/cembed)
-- [cimgui](https://github.com/cimgui/cimgui)
-- [fast_obj](https://github.com/thisistherk/fast_obj)
-- [glfw](https://github.com/glfw/glfw)
-- [glslcc](https://github.com/septag/glslcc)
-- [imgui](https://github.com/ocornut/imgui)
-- [Kenney Art Assets](https://kenney.nl/assets)
-- [lightmapper](https://github.com/ands/lightmapper)
-- [mattiasgustavsson/libs](https://github.com/mattiasgustavsson/libs)
-- [miniz](https://github.com/richgel999/miniz)
-- [parson](https://github.com/kgabis/parson)
-- [sokol](https://github.com/floooh/sokol)
-- [stb](https://github.com/nothings/stb)
-- [xatlas](https://github.com/jpcy/xatlas)
+```bash
+npm start
+```
+
+Il server si avvierà¹° su `http://localhost:3000`
+
+## 📖 Utilizzo
+
+### Pannello Admin
+
+1. Apri `http://localhost:3000/admin.html`
+2. Inserisci username TikTok e importo donazione
+3. Clicca "Genera Link"
+4. Copia il link e condividilo con l'utente
+
+### Pagina Giocatore
+
+1. L'utente apre il link (es. `http://localhost:3000/game.html?token=XXX`)
+2. Vede posizione in coda e tiri disponibili
+3. Quando è il suo turno:
+   - Ferma direzione (indicatore destra/sinistra)
+   - Ferma forza (barra su/giÙ¹⁰)
+   - Esegue il tiro
+
+### Gestione Coda
+
+- **Prossimo Turno**: Passa al giocatore successivo
+- **Classifica**: Giocatori ordinati per punteggio
+- **Resetta**: Cancella tutto e ricomincia
+
+## 🎮 Modalità¹° di Gioco
+
+1. **Direzione**: Si muove automaticamente. Clicca "FERMA DIREZIONE".
+2. **Forza**: Barra che sale/scende. Clicca "FERMA FORZA".
+3. **Tiro**: Punteggio = media tra direzione e forza.
+
+## 🔧 API
+
+- `POST /api/generate-link` - Crea giocatore
+- `GET /api/queue` - Ottieni coda
+- `GET /api/leaderboard` - Ottieni classifica
+- `GET /api/player/:token` - Stato giocatore
+- `POST /api/next-turn` - Prossimo turno
+- `POST /api/shot/:token` - Registra tiro
+- `POST /api/reset` - Resetta gioco
+
+## 📝 Note
+
+- Progetto di testing per simulare donazioni TikTok
+- Database in memoria (si resetta riavviando)
+- Per TikTok reale: implementare webhook donazioni
+
+## 🛠️ Prossimi Passi
+
+1. Integrare Open-Golf (C) con backend
+2. Aggiungere WebSocket per real-time
+3. Implementare webhook TikTok
+4. Creare overlay per OBS
+
+## 👨‍💻 Autore
+
+lorenzograssiUni
+
+## 📄 License
+
+MIT
