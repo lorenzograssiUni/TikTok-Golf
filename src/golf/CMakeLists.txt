@@ -7,6 +7,10 @@ add_executable(golf
     socket_listener.c
 )
 
+target_include_directories(golf PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/../3rd_party/sokol
+)
+
 target_link_libraries(golf PRIVATE
     common
     fast_obj
