@@ -4,7 +4,6 @@ add_executable(golf
     draw.c
     ui.c
     golf.c
-    socket_listener.c
 )
 
 target_include_directories(golf PRIVATE
@@ -13,6 +12,8 @@ target_include_directories(golf PRIVATE
 
 target_link_libraries(golf PRIVATE
     common
+    cimgui
+    imgui
     fast_obj
     glad
     glfw
