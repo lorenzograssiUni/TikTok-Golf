@@ -5,6 +5,7 @@
 #include "sokol/sapp.h"
 #include "sokol/saudio.h"
 #include "sokol/glue.h"
+#define CIMGUI_DEFINE_ENUMS_AND_STRUCTS
 #include "cimgui/cimgui.h"
 #include "sokol/imgui.h"
 
