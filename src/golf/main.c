@@ -2,7 +2,6 @@
 #include "draw.h"
 #include "ui.h"
 #include "golf.h"
-#include "common/log.h"
 #include "common/inputs.h"
 #include "common/graphics.h"
 #include "common/audio.h"
@@ -22,9 +21,7 @@ static struct audio *g_audio;
 static void
 init_cb(void)
 {
-    if (socket_listener_init() != 0) {
-        log_error("Failed to initialize socket listener");
-    }
+    socket_listener_init();
 
     g_game = game_create();
     g_inputs = inputs_create();
@@ -73,7 +70,7 @@ cleanup_cb(void)
     audio_destroy(g_audio);
 }
 
-int main(void)
+SOKOL_MAIN
 {
     sapp_desc desc = {
         .init_cb = init_cb,
@@ -86,5 +83,5 @@ int main(void)
         .high_dpi = false,
     };
 
-    return sapp_run(&desc);
+    sapp_run(&desc);
 }
