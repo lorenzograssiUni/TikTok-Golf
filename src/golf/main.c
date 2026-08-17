@@ -70,7 +70,7 @@ cleanup_cb(void)
     audio_destroy(g_audio);
 }
 
-SOKOL_MAIN
+int main(void)
 {
     sapp_desc desc = {
         .init_cb = init_cb,
@@ -83,5 +83,5 @@ SOKOL_MAIN
         .high_dpi = false,
     };
 
-    sapp_run(&desc);
+    return sapp_run(&desc);
 }
