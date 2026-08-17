@@ -42,7 +42,7 @@
     </div>
   </div>
   <script>
-    const API_BASE = 'http://localhost:3000/api';
+    const API_BASE = '/api';
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
     let playerData = null, directionValue = 50, powerValue = 50, directionMoving = true, powerMoving = true, directionDirection = 1, powerDirection = 1;
@@ -103,6 +103,7 @@
     document.getElementById('stopDirection').addEventListener('click', () => { directionMoving = false; alert(`Direzione: ${Math.round(directionValue)}%`); });
     document.getElementById('stopPower').addEventListener('click', () => { powerMoving = false; alert(`Forza: ${Math.round(powerValue)}%`); });
     document.getElementById('executeShot').addEventListener('click', async () => {
+      if (!playerData?.isCurrentTurn) { alert('Non è più il tuo turno.'); return; }
       if (!directionMoving && !powerMoving) {
         const score = Math.round((directionValue + powerValue) / 2);
         const response = await fetch(`${API_BASE}/shot/${token}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ direction: Math.round(directionValue), power: Math.round(powerValue), score }) });

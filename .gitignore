@@ -57,3 +57,4 @@ Makefile
 build/android/OpenGolf/app/src/main/assets/data.zip
 src/common/data_zip.h
 storage.json
+node_modules/

@@ -19,11 +19,13 @@ const queue = [];
 let currentTurnIndex = 0;
 
 app.post('/api/generate-link', (req, res) => {
-  const { username, donationAmount } = req.body;
-  if (!username) return res.status(400).json({ error: 'Username richiesto' });
+  const usernameValue = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  const donationValue = Number(req.body?.donationAmount);
+  if (!usernameValue) return res.status(400).json({ error: 'Username richiesto' });
+  if (!Number.isFinite(donationValue) || donationValue < 1) return res.status(400).json({ error: 'Donazione non valida' });
   const token = uuidv4();
-  const shots = Math.max(1, Math.floor(donationAmount || 1));
-  const player = { token, username: username || `Giocatore_${queue.length + 1}`, donationAmount: donationAmount || 1, shots, shotsRemaining: shots, score: 0, createdAt: new Date(), status: 'waiting' };
+  const shots = Math.max(1, Math.floor(donationValue));
+  const player = { token, username: usernameValue.slice(0, 50), donationAmount: donationValue, shots, shotsRemaining: shots, score: 0, createdAt: new Date(), status: queue.length === 0 ? 'playing' : 'waiting' };
   players.set(token, player);
   queue.push(token);
   const gameUrl = `http://localhost:${PORT}/game.html?token=${token}`;
@@ -33,7 +35,7 @@ app.post('/api/generate-link', (req, res) => {
 app.get('/api/queue', (req, res) => {
   const queueData = queue.map((token, index) => {
     const player = players.get(token);
-    return { position: index + 1, username: player.username, shotsRemaining: player.shotsRemaining, status: index === currentTurnIndex ? 'playing' : 'waiting', isCurrentTurn: index === currentTurnIndex };
+    return { position: index + 1, username: player.username, shotsRemaining: player.shotsRemaining, status: player.status, isCurrentTurn: index === currentTurnIndex && player.shotsRemaining > 0 };
   });
   res.json({ queue: queueData, currentTurnIndex, totalPlayers: queue.length });
 });
@@ -80,12 +82,18 @@ app.post('/api/next-turn', (req, res) => {
 
 app.post('/api/shot/:token', (req, res) => {
   const { token } = req.params;
-  const { direction, power, score } = req.body;
+  const { direction, power, score } = req.body || {};
   const player = players.get(token);
   if (!player) return res.status(404).json({ error: 'Giocatore non trovato' });
+  if (queue[currentTurnIndex] !== token) return res.status(403).json({ error: 'Non è il turno di questo giocatore' });
   if (player.shotsRemaining <= 0) return res.status(400).json({ error: 'Nessun tiro rimanente' });
+  const directionValue = Number(direction);
+  const powerValue = Number(power);
+  const scoreValue = Number(score);
+  if (![directionValue, powerValue, scoreValue].every(Number.isFinite)) return res.status(400).json({ error: 'Parametri del tiro non validi' });
+  if (directionValue < 0 || directionValue > 100 || powerValue < 0 || powerValue > 100 || scoreValue < 0 || scoreValue > 100) return res.status(400).json({ error: 'Parametri del tiro fuori intervallo' });
   player.shotsRemaining--;
-  player.score += score || 0;
+  player.score += Math.round(scoreValue);
   
   // Se ha finito i tiri e ci sono altri giocatori, passa automaticamente
   if (player.shotsRemaining <= 0 && currentTurnIndex < queue.length - 1) {
