@@ -5,6 +5,7 @@
 #include "sokol/sapp.h"
 #include "sokol/saudio.h"
 #include "sokol/glue.h"
+#include "cimgui/cimgui.h"
 #include "sokol/imgui.h"
 
 #if !defined(_WIN32)
